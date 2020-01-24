@@ -1,0 +1,795 @@
+---
+title: "Police Killings Analysis"
+author: "STOR 320 Group 4"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(Hmisc)
+library(modelr)
+library(dplyr)
+library(xtable)
+library(forcats)
+library(formattable)
+library(rvest)
+
+
+# Import Data Below
+PoliceKillings<-read_csv("PKcleanP2.csv")
+
+# Add DC to the South region
+PoliceKillings$region[which(PoliceKillings$State=="DC")]<-"South"
+```
+
+```{r, include=FALSE, warning=FALSE}
+# Import CSV
+PoliceKillings.table<-read_csv("PoliceKillingsTable.csv")
+
+```
+
+
+
+```{r, include=FALSE, warning=FALSE}
+# Adding populations by state and adding populations by region
+populations<-read_csv("StatePops.csv")
+pops<-populations[-1,3:11]
+
+
+# Import states by region
+region.data<-read_csv("StatesbyCensusRegion.csv")
+
+
+# Joining state pop and region data
+pops1<-pops %>%
+  select("GEO.display-label","respop72015") %>%
+  rename(State="GEO.display-label",Pop2015=respop72015) %>%
+  left_join(region.data,by="State") %>%
+  mutate(Pop2015=as.numeric(Pop2015)) %>%
+  group_by(region) %>%
+  mutate(PopByRegion=sum(Pop2015)) %>%
+  select(PopByRegion,region) %>%
+  ungroup() %>%
+  mutate(Pop.prop=PopByRegion/PopByRegion[1])
+
+# Create a tibble of uniqe regions, pops, and prop pops
+pops2<- tibble(PopByRegion=unique(pops1$PopByRegion),Region=unique(pops1$region),Pop.prop=unique(pops1$Pop.prop))
+
+# Converting region variable to a factor
+regions<-pops2 %>%
+  mutate(Region=as_factor(Region))
+levels(regions$Region)
+
+# Remove the row for US total police killings
+regions<-regions[-c(is.na(regions$Region)),]
+
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+# Count how many police killings are in each state
+state.kills<-PoliceKillings %>%
+  select(State) %>%
+  mutate(State=as_factor(State)) %>%
+  group_by(State) %>%
+  dplyr::summarize(count=n())
+
+# Count how many police killings are in each region
+region.kills<-PoliceKillings %>%
+  select(region) %>%
+  mutate(region=as_factor(region)) %>%
+  group_by(region) %>%
+  dplyr::summarize(count=n())
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+# Create population state data frame
+states<- pops %>%
+  select("GEO.display-label","respop72015") %>%
+  rename(State="GEO.display-label",Pop2015=respop72015) %>%
+  mutate(Pop2015=as.numeric(Pop2015)) %>%
+  left_join(region.data,by="State") %>%
+  select(-region)
+
+# Join police killings by state with population state data and create a variable for kills per 100,000 per state
+states1<-states[-c(1),] %>%
+  select(Pop2015,State,state) %>%
+  right_join(state.kills,by=c("state"="State")) %>%
+  mutate(kill.pc.state=count/Pop2015*100000)
+
+# Join police killings by region with population regions data and create a variable for kills per 100,000 per region
+regions1<-regions %>%
+  select(PopByRegion,Region) %>%
+  right_join(region.kills,by=c("Region"="region")) %>%
+  mutate(kill.pc.region=count/PopByRegion*100000)
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+Races <- PoliceKillings %>% 
+  group_by(Race,region) %>%
+  dplyr::summarize(count=n()) %>%
+  ungroup() %>%
+  mutate(prop=count/sum(count)) 
+
+# Remove the row for unknown races
+Races<-Races[-c(which(Races$Race=="Unknown")),]
+
+NE= 47433806+38008094+6049443+3151094+6991969
+MW= 52096633+6843367+388068+1738361+4661678
+S= 68706462+21578475+728410+3238092+18227508
+W= 38006363+3214563+1002967+6923296+20596439
+total=NE+MW+S+W
+
+# Proportions of each race that live in each region in 2015
+# https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk
+
+race.table<-data.frame("Region"= c("Northeast","Midwest","South","West"),
+                           "White"=c(47433806,52096633,68706462,38006363),
+                           "Black"=c(38008094,6843367,21578475,3214563),
+                           "Native American"=c(6049443,388068,728410,1002967),
+                           "Asian/Pacific Islander"=c((117653+3033441),(1713429+24932),(3170814+67278),(6547440+375856)),
+                            "Hispanic"=c((55317240-48325271),(66927001-62265323),(114555744-96328236),(71945553-51349114)),
+                           "Total"=c(NE,MW,S,W))
+
+race.prop.table<-data.frame("Region"= c("Northeast","Midwest","South","West"),
+                            "White"=c(47433806/NE,52096633/MW,68706462/S,38006363/W),
+                            "Black"=c(38008094/NE,6843367/MW,21578475/S,3214563/W),
+                            "Native American"=c(6049443/NE,388068/MW,728410/S,1002967/W),
+                            "Asian/Pacific Islander"=c((117653+3033441)/NE,(1713429+24932)/MW,(3170814+67278)/S,(6547440+375856)/W),
+                            "Hispanic"=c((55317240-48325271)/NE,(66927001-62265323)/MW,(114555744-96328236)/S,(71945553-51349114)/W),
+                            "Total"=c(NE/total,MW/total,S/total,W/total))
+
+race.rank<-race.prop.table %>%
+  rename("Native American"=Native.American,
+         "Asian/Pacific Islander"=Asian.Pacific.Islander,
+         "Hispanic/Latino"=Hispanic) %>%
+  gather(White:`Hispanic/Latino`,key="Race",value="Race_Proportion_by_Region",factor_key = T) %>%
+  mutate(Region=factor(Region)) %>%
+  filter(!(Race =="Native American"&Region!="West"))
+
+# Ranks of the proportion of race for all the regions
+ranks<-c(4,2,3,1,3,1,2,4,3,4,2,1,1,1,4,2,3)
+
+# Plotting proportion of police killings in each region by race
+Races1<-Races %>%
+  left_join(region.kills,by="region") %>%
+  mutate(Prop.race.region=count.x/count.y) %>%
+  left_join(race.rank,by=c("region"="Region","Race")) %>%
+  cbind(ranks)
+
+
+```
+
+
+
+```{r, include=FALSE, warning=FALSE}
+# Mean Median Income for entire regions (including living people) estimated by census bureau as of 2015 from https://www.census.gov/library/publications/2016/demo/p60-256.html
+
+region.names<-c("Northeast","Midwest","South","West")
+region.mean.inc<-c(62182,57082,51174,61442)
+
+
+mean.inc<-tibble(region=region.names,mean=region.mean.inc)
+
+
+
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+PD = 
+  PoliceKillings %>% 
+  mutate( 
+    killed = ifelse("age">16, 1, 0), 
+    killed = factor(killed, levels=c("0","1"), labels = c("Alive","Dead")))
+  
+ggplot(PD) + 
+  geom_bar(mapping = aes(killed), fill="skyblue1") + 
+  theme_light() + 
+  ggtitle("Police Violence in 2015") + xlab("Status of Victims") + ylab("Count")+
+  scale_x_discrete(limits=c("Alive","Dead"))+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))
+
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+Agencies = 
+  PoliceKillings %>% 
+  arrange(Law_Enforcement_Agency) %>% 
+  group_by(Law_Enforcement_Agency) %>%
+  dplyr::summarize(n = n()) %>%
+  mutate( freq = n / sum(n))
+
+Agencies2 = inner_join(Agencies, PoliceKillings) %>%
+  select("Law_Enforcement_Agency","freq", -("n"), -("Name"), "Age":"region") 
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+Agencies = 
+  PoliceKillings %>% 
+  group_by(Law_Enforcement_Agency) %>%
+  dplyr::summarize(n = n()) %>%
+  mutate( freq = n / sum(n))
+
+Agencies2 = inner_join(Agencies, PoliceKillings) %>%
+  select("Law_Enforcement_Agency","freq", -("n"), -("Name"), "Age":"region") 
+
+Agencies3 = 
+  Agencies2 %>% 
+  group_by(Law_Enforcement_Agency) %>% 
+  mutate(Population = median(Population),
+         Proportion_White = median(Proportion_White), 
+         Proportion_Black = median(Proportion_Black), 
+         Proportion_Hispanic = median(Proportion_Hispanic), 
+         med.tract.personal.inc = median(med.tract.personal.inc),
+         med.tract.household.inc = median(med.tract.household.inc), 
+         med.county.household.inc = median(med.county.household.inc), 
+         Poverty_Rate = median(Poverty_Rate),
+         Unemployment_Rate = median(Unemployment_Rate),
+         Proportion_Attended_College = median(Proportion_Attended_College), 
+         inc.quint.nat = median(inc.quint.nat),
+         tractvcount.percentile = median(tractvcount.percentile),
+         Age = as.numeric(Age),
+         Age = median(Age))
+
+
+```
+
+
+
+
+```{r, include=FALSE, warning=FALSE}
+
+#count of whether each killing occured in an area that has an unemployment rate higher than the national average of 3.6%
+PK1=PoliceKillings%>%
+  mutate(higherthanavg=if_else(Unemployment_Rate>0.054,"Yes","No"))
+table(PK1$higherthanavg) 
+
+#splitting up unemployment into ranges and then finding the count for each bin
+URranges1=cut2(PoliceKillings$Unemployment_Rate,c(0.02,0.04,0.06,0.08,0.1,0.12,0.14,0.16,0.18,0.2,0.22,0.24,0.26,0.28,0.3,0.32,0.34,0.36,0.38,0.4)) 
+summary(URranges1) 
+
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+library(tidyverse)    #Essential Functions
+library(modelr)       #Helpful Functions in Modeling
+library(purrr)
+library(broom)
+```
+
+```{r, include=FALSE, warning=FALSE}
+income_cv1 = PoliceKillings %>% 
+  select(-Name, -Latitude, -Longitude,everything()) %>% 
+  mutate( 
+    Age = as.numeric(Age),
+    Gender = as.factor(Gender), 
+    Race = as.factor(Race), 
+    State = as.factor(State),
+    Region = factor(region)) 
+```
+
+```{r, include=FALSE, warning=FALSE}
+firstmod = lm(med.tract.household.inc~Population,data=income_cv1)
+tidy(firstmod)
+
+income_cv1_sec = income_cv1 %>% 
+  crossv_kfold(100)
+
+
+train.model.func1 = function(data){
+  fistmod = lm(med.tract.household.inc~Population,data=data)
+  return(fistmod)
+}
+
+income_cv1_third = income_cv1_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv1_predict = income_cv1_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+
+
+bias.func=function(actual,predict){
+  bias=mean((actual-predict),na.rm=T)
+  return(bias)
+}
+
+mae.func=function(actual,predict){
+  mae=mean(abs(actual-predict),na.rm=T)
+  return(mae)
+}
+
+RMSE.func=function(actual,predict){
+  mse=mean((actual-predict)^2,na.rm=T)
+  rmse=sqrt(mse)
+  return(rmse)
+}
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+secmod = lm(med.tract.household.inc~Population + Poverty_Rate, data=income_cv1)
+tidy(secmod)
+
+income_cv2_sec = income_cv1 %>% 
+  crossv_kfold(100)
+
+train.model.func1 = function(data){
+  secmod = lm(med.tract.household.inc~Population + Poverty_Rate, data=income_cv1)
+  return(secmod)
+}
+income_cv2_third = income_cv2_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv2_predict = income_cv2_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+```
+
+```{r, include=FALSE, warning=FALSE}
+fourmod = lm(med.tract.household.inc~Population + Poverty_Rate + Age, data=income_cv1)
+tidy(fourmod)
+
+income_cv4_sec = income_cv1 %>% 
+  crossv_kfold(100)
+
+train.model.func1 = function(data){
+  fourmod = lm(med.tract.household.inc~Population + Poverty_Rate + Age, data=income_cv1)
+  return(fourmod)
+}
+income_cv4_third = income_cv4_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv4_predict = income_cv4_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+```
+
+```{r, include=FALSE, warning=FALSE}
+fivemod = lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College, data=income_cv1)
+tidy(fivemod)
+
+income_cv5_sec = income_cv1 %>% 
+  crossv_kfold(100)
+
+train.model.func1 = function(data){
+  fivemod = lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College, data=income_cv1)
+  return(fivemod)
+}
+income_cv5_third = income_cv5_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv5_predict = income_cv5_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+```
+
+```{r, include=FALSE, warning=FALSE}
+sixmod = lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College + Proportion_White + Race + Region + Race*Region, data=income_cv1)
+tidy(sixmod)
+
+income_cv6_sec = income_cv1 %>% 
+  crossv_kfold(100)
+
+train.model.func1 = function(data){
+  sixmod = lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College + Proportion_White + Race + Region + Race*Region, data=income_cv1)
+tidy(sixmod)
+  return(sixmod)
+}
+income_cv6_third = income_cv6_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv6_predict = income_cv6_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+```
+
+```{r, results="asis", include=FALSE, warning=FALSE}
+table <- matrix(c(bias.func(actual=income_cv1_predict$med.tract.household.inc, predict=income_cv1_predict$.fitted), mae.func(actual=income_cv1_predict$med.tract.household.inc, predict=income_cv1_predict$.fitted), RMSE.func(actual=income_cv1_predict$med.tract.household.inc, predict=income_cv1_predict$.fitted), bias.func(actual=income_cv2_predict$med.tract.household.inc, predict=income_cv2_predict$.fitted), mae.func(actual=income_cv2_predict$med.tract.household.inc, predict=income_cv2_predict$.fitted), RMSE.func(actual=income_cv2_predict$med.tract.household.inc, predict=income_cv2_predict$.fitted), bias.func(actual=income_cv4_predict$med.tract.household.inc, predict=income_cv4_predict$.fitted), mae.func(actual=income_cv4_predict$med.tract.household.inc, predict=income_cv4_predict$.fitted), RMSE.func(actual=income_cv4_predict$med.tract.household.inc, predict=income_cv4_predict$.fitted),bias.func(actual=income_cv5_predict$med.tract.household.inc, predict=income_cv5_predict$.fitted), mae.func(actual=income_cv5_predict$med.tract.household.inc, predict=income_cv5_predict$.fitted), RMSE.func(actual=income_cv5_predict$med.tract.household.inc, predict=income_cv5_predict$.fitted), bias.func(actual=income_cv6_predict$med.tract.household.inc, predict=income_cv6_predict$.fitted), mae.func(actual=income_cv6_predict$med.tract.household.inc, predict=income_cv6_predict$.fitted),RMSE.func(actual=income_cv6_predict$med.tract.household.inc, predict=income_cv6_predict$.fitted)), ncol = 3, byrow = T)
+
+colnames(table) = c("Bias", "MAE", "RMSE")
+row.names(table) = c("Base Model", "Model 2", "Model 3", "Model 4", "Model 5")
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+test.step<-income_cv1 %>%
+  mutate(regionwest=ifelse(Region=="West",1,0)) %>%
+  mutate(regionsouth=ifelse(Region=="South",1,0)) %>%
+  mutate(regionnortheast=ifelse(Region=="Northeast",1,0))
+
+#STEP 1: Run a stepwise regression to find best model:
+Full1= lm(med.tract.household.inc~ Age+ factor(Gender)+ factor(Race)+ Population+factor(Armed)+ factor(Cause_Of_Death) + Proportion_White +Proportion_Black + Proportion_Hispanic +Poverty_Rate +Unemployment_Rate +Proportion_Attended_College+ Region+ regionwest+ regionsouth+ regionnortheast+ Poverty_Rate*Unemployment_Rate+ Race*Region+  I(Proportion_Attended_College^2)+ I(Poverty_Rate)^2, data= test.step)
+MSE1=(summary(Full1)$sigma)^2
+none= lm(med.tract.household.inc~1, data=test.step)
+step(none, scope= list(upper=Full1), scale=MSE1)
+
+
+# STEP 2: Take model that it gave and mess around with it, add transformations, add interactions, and remove variables if needed: 
+# stepwise= lm(med.tract.household.inc ~ Poverty_Rate  + Population+ Proportion_Black+ Proportion_White+I(Proportion_Attended_College^2)+ Poverty_Rate*Unemployment_Rate, data = income_cv1)
+# summary(stepwise)
+
+stepwise= lm(med.tract.household.inc ~ Poverty_Rate+ Population+ Proportion_White+ Proportion_Attended_College+ I(Proportion_Attended_College^2)+ Region, data = test.step)
+
+
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+
+income_cv7_sec = test.step %>% 
+  crossv_kfold(100)
+
+train.model.func1 = function(data){
+  sevenmod = stepwise
+  tidy(sevenmod)
+  return(sevenmod)
+}
+income_cv7_third = income_cv7_sec %>%
+  mutate(tr.model = map(train,train.model.func1)) 
+
+income_cv7_predict = income_cv7_third %>% 
+  mutate(predict = map2(test,tr.model, ~augment(.y,newdata=.x))) %>% 
+  select(predict) %>% 
+  unnest()
+
+
+table1<-table %>%
+  rbind(c(bias.func(income_cv7_predict$med.tract.household.inc,income_cv7_predict$.fitted),
+          mae.func(income_cv7_predict$med.tract.household.inc, income_cv7_predict$.fitted),
+          RMSE.func(income_cv7_predict$med.tract.household.inc,income_cv7_predict$.fitted)))
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+row.names(table1) = c("Base Model", "Model 2", "Model 3", "Model 4", "Model 5","Stepwise Model")
+table1 <- as.table(table1)
+table2=xtable(table1,digits=4,align=c("l","l","l","l"))
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+model1=lm(med.tract.household.inc~Population,income_cv1)
+tidy(model1)
+model2=lm(med.tract.household.inc~Population + Poverty_Rate,income_cv1)
+tidy(model2)
+model3=lm(med.tract.household.inc~Population + Poverty_Rate + Age,income_cv1)
+tidy(model3)
+model4=lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College,income_cv1)
+tidy(model4)
+model5=lm(med.tract.household.inc~Population + Poverty_Rate + Age + Proportion_Attended_College + Proportion_White + Race + Region + Race*Region,income_cv1)
+tidy(model5)
+model6=stepwise
+tidy(model6)
+
+library(kableExtra)
+library(knitr)
+
+
+
+```
+
+
+
+```{r, include=FALSE, warning=FALSE}
+
+# Gather all the models into a single variable
+res.test.step1<-test.step %>%
+  spread_predictions(model1,model2,model3,model4,model5,model6)%>%
+  select(med.tract.household.inc,model1,model2,model3,model4,model5,model6,Proportion_Attended_College,Poverty_Rate)%>%
+  gather(model1:model6,key="Model",value="Pred",factor_key=T) %>%
+  mutate(Model=factor(Model,levels =c("model1", "model2", "model3","model4", "model5", "model6"), labels=c("Base Model", "Model 2", "Model 3", "Model 4", "Model 5", "Stepwise Model")))
+
+  
+res.test.step2<-test.step %>%
+  spread_predictions(model5,model6)%>%
+  select(med.tract.household.inc,model5,model6,Proportion_Attended_College,Poverty_Rate)%>%
+  gather(model5:model6,key="Model",value="Pred",factor_key=T)  %>%
+  mutate(Model=factor(Model,levels =c("model1", "model2", "model3","model4", "model5", "model6"), labels=c("Base Model", "Model 2", "Model 3", "Model 4", "Model 5", "Stepwise Model")))
+```
+
+
+```{r, include=FALSE, warning=FALSE}
+
+# Web scrape the gun laws table from
+URL.gun.scorecard = "https://lawcenter.giffords.org/scorecard2015/"
+gun.scorecard = URL.gun.scorecard %>%
+                      read_html() %>%
+                      html_table(fill=1) %>%
+                      .[[1]]
+
+# Removing the minus and plus signs from the grades
+gun.scorecard$`2015 Grade`[gun.scorecard$`2015 Grade` %in% "A-"]="A"
+gun.scorecard$`2015 Grade`[gun.scorecard$`2015 Grade` %in% "B+"]="B"
+gun.scorecard$`2015 Grade`[gun.scorecard$`2015 Grade` %in% "B-"]="B"
+gun.scorecard$`2015 Grade`[gun.scorecard$`2015 Grade` %in% "C-"]="C"
+gun.scorecard$`2015 Grade`[gun.scorecard$`2015 Grade` %in% "D-"]="D"
+
+# Adding the region
+gun.scorecard<-gun.scorecard %>%
+  left_join(region.data,by="State")
+ 
+
+gun.scorecard<-pops %>%
+  select("GEO.display-label","respop72015") %>%
+  rename(State="GEO.display-label",Pop2015=respop72015) %>%
+  left_join(gun.scorecard,by="State") %>% 
+  mutate(Pop2015=as.numeric(Pop2015)) %>%
+  left_join(state.kills,by=c("state"="State"))
+
+# Remove DC and Total US
+gun.scorecard1<-gun.scorecard[-c(which(is.na(gun.scorecard$`2015 Grade`))),] %>%
+  select(-`Death Rate Per 100k`,-`New Smart Gun Laws in 2015`)
+
+# Turning the gun law grades into factors to run a regression later
+gun.scorecard2<-gun.scorecard1[-c(which(is.na(gun.scorecard1$count))),]
+
+gun.scorecard3<-gun.scorecard2 %>%
+  mutate("2015 Grade"=factor(gun.scorecard2$`2015 Grade`)) %>%
+  mutate(KillCount=count) %>%
+  select(-count)
+
+# Find how many unique groups of gun laws there are and how many kills per capita are in each
+gun.scorecard4<-gun.scorecard3 %>%
+  group_by(`2015 Grade`) %>%
+  dplyr::summarize(count.gunlaws.ranks=n(),
+                   KillCount=sum(KillCount),
+                   Population=sum(Pop2015),
+                   "Kill.per.100,000"=KillCount/Population*100000) %>%
+  ungroup()
+  
+  
+gun.table<-gun.scorecard4 %>%
+  rename("Number of States"=count.gunlaws.ranks,"Kill Count"=KillCount,"Kill Rate per 100,000 People"=`Kill.per.100,000`)
+```
+
+```{r, include=FALSE, warning=FALSE}
+library(mapproj)
+library(usmap)
+library(ggplot2)
+library(mapdata)
+library(sf)
+
+PoliceKillingsMap = 
+  PoliceKillings %>% 
+  filter(State != "HI") %>%
+  filter(State != "AK")
+
+labs1 <- data.frame(
+long = PoliceKillingsMap$Longitude, 
+lat = PoliceKillingsMap$Latitude, 
+state = PoliceKillingsMap$State,
+stringsAsFactors = FALSE)
+
+
+us_states1 = map_data("state")
+
+us_states2 = 
+  us_states1 %>% 
+  mutate(State = region) %>% 
+  select(-subregion,-region)
+
+gun.scorecard[[1]] = tolower(gun.scorecard[[1]])
+
+us_states3 = right_join(us_states2,gun.scorecard)
+```
+
+```{r include = F, warning=FALSE}
+rename(us_states3, Rank = "2015 Grade") 
+```
+
+```{r, include=FALSE, warning=FALSE}
+labs2 = right_join(us_states3, labs1)
+
+
+one = ggplot(data = us_states3, aes(x =long, y = lat, group = group, fill = Rank)) + guides() + coord_fixed(1.3)
+
+two = one + geom_polygon(color = "gray90", size = 0.1) + 
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45)
+
+three = two + scale_fill_gradient(low = "white", high = "skyblue1")
+
+
+four = three +
+  geom_point(data = labs2, aes(x = long, y = lat),color="red", alpha = 0.4, size = 0.5) + 
+  # ggtitle("Police Killings in States with Ranked Gun Laws")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))+
+  xlab("Longitude")+
+  ylab("Latitude")
+
+```
+
+
+
+## Introduction
+
+Police violence is an increasingly controversial topic within America’s civic discourse. Every year, police violence affects countless Americans and regularly incites debate about the presence of police and the tactics that they employ. When incidents of police violence occur, details about the victim’s race, age, and income are regularly discussed. Consequently, these small details coalesce into a larger discussion about the socioeconomic characteristics that influence disproportionate rates of police violence. Utilizing data from FiveThirtyEight and The Guardian, this paper contributes to a larger discussion of police violence by analyzing the attributes of victims and the places they live. 
+
+According to FiveThirtyEight, police shooting victims tend to live in poorer areas of the country. Because this relationship does exist, we sought to investigate the factors that create this reality. Accounting for various economic characteristics on a census level, we aimed to predict the median household income of census tracts where fatal police confrontations occur. Income prediction is a utile method to investigate the lives of low-income police violence victims. Through finding significant predictors of median income, policymakers are better able to interpret systemic differences, or barriers, in our country. Amongst vulnerable groups, like victims of police shootings, policymakers can address systemic inequality, then work towards actionable change. Overall, analyzing variables that influence income elucidates socioeconomic realities that affect police shooting victims and Americans in similar economic circumstances. 
+
+Many of the victims within this dataset were armed, therefore, access to firearms may impact the likelihood of being a police victim. We investigated the relationship between state gun laws and instances of fatal police killings. Gun laws vary from state to state. As such, differences in regulation have long been a subject of dispute amongst policymakers. In what seems to be a gun violence epidemic, some lawmakers argue that all states should have universal firearms regulations. Individually, information about the “armed” status of victims may impact the decision to carry a weapon. Broadly, if any relationship exists between state-level firearm regulations and the rate of police killings, there would be major policy implications for the ownership of firearms that could lead to the minimization of police-related fatalities. In order to address the  disparate levels of police violence amongst specific communities, we must understand the broader instrumentalities that directly impact firearm accessibility.  
+
+The widespread reach of police violence has become a household topic in American politics. The systemic nature of its reach has allowed for a dichotomy in power to emerge between victim and assailant. In order to better understand the nature of police violence, it is integral to analyze the data that underpins its occurrence. This project, while a small piece of a larger picture, seeks to illuminate the societal factors that lead to higher rates of fatal police confrontations, in addition to understanding the commonalities between victims and gun control laws.
+
+
+## Data
+
+Our initial data, acquired from FiveThirtyEight, detailed 467 Americans who were killed by police violence from January through June of 2015. The dataset we used was partially collected by The Guardian through its ongoing project “The Counted”. Unlike police records, this data incorporated journalist-verified information about the locations where incidents of police violence occured. The guardian collected a comprehensive list of characteristics of each police killing including, but not limited to: the victim’s name, age, gender, race, whether the victim was armed, and the cause, location, and time of death. The Guardian utilized its resources to build, in its own words, a “more comprehensive” record of police fatalities in order to boost public accountability. Utilizing The Guardian’s information, FiveThirtyEight appended additional data. FiveThirtyEight incorporated socioeconomic information on a census-tract level basis for each victim. They incorporated variables including the census tract in which the shooting occurred, racial proportions of the census tract, the median personal and household income of the census tract, the unemployment rate of the census tract, the poverty rate of the census tract, and the percentage of the citizens over the age of 25 with a B.A. degree or more. Beyond FiveThirtyEight’s data, our group added data from the Giffords Law Center, an authority on gun regulations and firearm safety throughout the country, and factored it into our model. 
+ 
+At the beginning of our analysis, 467 observations were contained in our dataset. After deliberation, we decided to remove observations that were missing crucial socioeconomic information. For example, two men were shot in airports and had multiple N/A values for their census data.  Because we were unable to estimate and introduce new information from the missing values, we decided to remove data with missing variables. With such a small dataset for such a large area, we maintained that every observation’s data must be complete in order to conduct a definitive analysis. In line with this logic, we removed the variable `county_bucket` due to many N/A values for observations. While the county bucket served as a geographic grouping variable for the US census, it was extraneous information for our analysis. By the end of our data cleaning, we had 465 observations and a variety of variables left in our dataset.
+
+**Table One: Summary Statistics for Critical Values Utilized in Income Prediction Model**
+```{r, echo=FALSE, warning=FALSE}
+# Table of summary statistics about the data
+formattable(PoliceKillings.table)
+```
+
+**Figure One: Proportion of Deaths per Region by Median Household Income**
+```{r, echo=FALSE, warning=FALSE}
+ggplot(PoliceKillings)+
+  geom_histogram(aes(x=med.tract.household.inc),bins=20,fill='skyblue1')+
+  facet_wrap(region~.)+
+  geom_vline(aes(xintercept=mean),data=mean.inc,linetype="dashed",color="white")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))+
+  xlab("Median Household Income")+
+  ylab("Count of Deaths")+
+  theme(axis.text.x=element_text(angle=45,hjust=1))+
+  scale_x_continuous(breaks=c(25000,50000,75000,100000))+
+  # ggtitle("Proportion of Deaths per Region by Median Household Income")+
+  labs(subtitle = "Dashed Line is Regional Mean Median Household Income")
+```
+
+
+The census tract demographic characteristics appended by FiveThirtyEight served as a basis for our income prediction model. Utilizing the 465 observations, we regressed the numeric variable `med.tract.household.inc`, which represented the median household income of the census tract, on a variety of characteristics. The base regression model was a simple linear model utilizing the numerical variable population as its sole regressor. Over time, we added additional numerical and categorical regressors into the model utilizing statistical significance and the model’s overall predictive accuracy as benchmarks for inclusion. Utilizing the stepwise regression technique, we incorporated several statistically significant numerical variables into the model. A census tract’s poverty rate, unemployment rate, population, proportion of White residents, and the proportion of people who attended college were significant within the final regression of the model. A quadratic of the proportion who attended college was also taken into consideration. The `region` categorical variable remained significant during the stepwise regression fitting. In order to control for broader regional characteristics, we merged a dataset that indicated the geographic region for each state according to the census. Utilizing a combination of cross validation and stepwise regression techniques, we were able to whittle down the model’s bias. 
+
+**Figure Two: Regional Proportion of Police Killings by Race**
+```{r, echo=FALSE, warning=FALSE}
+ggplot(Races1)+
+  geom_col(aes(x=Race,y=Prop.race.region),fill="skyblue1")+
+  geom_text(aes(x=Race,y=Prop.race.region,label=ranks),color="white")+
+  facet_wrap(region~.)+
+  ylab("Proportion of police killings by region")+
+  theme(axis.text.x=element_text(angle=45,hjust=1))+
+  # ggtitle("Regional Proportion of Police Killings by Race")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))+
+  theme(axis.text.x=element_text(angle=45,hjust=1))+
+  labs(subtitle="Ranked by Total Race Proportion in All Regions")
+```
+
+**Table Two: Proportions of Populatiuon by Race and Region**
+```{r, echo=FALSE, warning=FALSE}
+formattable(race.prop.table)
+
+```
+
+To analyze the relationship between gun laws and instances of fatal police confrontations we required a method of ranking states based on the safety of their firearm regulations. We accomplished this by utilizing data from the Giffords Law Center in which they graded each state on a scale of “A” to “F” based on their relative levels of gun safety as determined by the strictness of their firearm regulations. When ranking states, Giffords created a points system. Each state received or lost points for meeting specific criteria. For example, if a state has risky firearm practices such as allowing guns in schools or having “Stand your Ground” laws, this resulted in point deductions, but if a state enacted safer firearm regulations such as limiting bulk firearm purchases, then points were awarded. Once these points for each state were summed, Giffords divided the point ranges to create hierarchical safety grades. The majority of states are classified in the “F” rank. Proportionally, all other ranks have approximately the same number of states. In order to perform the analysis we merged the gun safety rankings with the police killings dataset. Additionally, we had to perform some cleaning of the data concerning how some of the grades had +/-, but not enough to justify creating another category of ranks for these grades. To deal with +/- we simply removed them so that these ranks were whole letter grades. 
+
+When looking at occurrences of fatal police confrontations we found it necessary to standardize the instances of police killings across states. To do this, we created a metric for the number of police killings per 100,000 people for each state. In order to create this metric we required a dataset that contained each state’s population in 2015. We were able to procure this data from the website data.world. This dataset encompasses each state’s population from 2010-2016 as taken from the US Census Bureau. We created the metric for police killings per 100,000 people by dividing the number of fatal police confrontations in each state by the relevant population in 2015 for that state and then multiplying by 100,000. By creating this measure, we were able to account for the population differences between states, allowing us to analyze police killings through a “per-capita” metric.
+ 
+
+
+## Results
+
+**Question One:**
+
+Utilizing census level variables, we created a simple base linear model utilizing population as the main predictor of median household income. Models two, three, and four added additional regressors to the base model. Respectively, each iteration of the base model regressed the census level variables poverty rate, the age of the victim, and the census level-tract proportion of citizens over the age of 25 who attended college or more. The fifth model incorporated several other census-level variables: the proportion of White citizens, the race of each citizen, and the region of the country were factored into the fifth model. Additionally, an interaction between race and region was included within the fifth model to control for broader socioeconomic characteristics. Given that a majority of these variables in the first five models were not incredibly significant, we utilized a stepwise regression technique to harness statistically significant variables in a sixth iteration of the model. To do this technique, we used two models: one full model with all the variables we deemed suitable for regression, and one model that was empty and had no predictors. For the full model, we excluded variables that had superfluous or redundant data, such as county ID numbers and tract ID numbers. To stay consistent with census-level data, we removed categorical variables with too many unique entries, such as the Law Enforcement Agency involved in the police killing, the City, and State. After this data cleaning, we plotted our full and empty models into the “step” function, and used an equation for the Mean Squared Error (MSE) as our scale. From there, R added and removed variables until it found a model with optimal significance. From this stepwise regression, we added an additional quadratic to improve the predictive power of the final model. The final model is summarized in the following equation: 
+
+$Median.Income = PovertyRate(X_i) +  Population(X_i) + ProportionWhite (X_i) + ProportionAttendedCollege(X_i) + ProportionAttendedCollege(X^2_i) + Region_j(X_i)$
+
+**Table Three: Measures of Error within each Model**
+```{r, echo=FALSE, warning=FALSE}
+formattable(table2)
+```
+
+Utilizing K-Fold cross validation, we ran each model through a rigorous series of tests and 100 folds. Table Three is a result of this testing, displaying a series of statistics detailing the overall error within each model. There are several trends to observe. Between the base model and model five, bias tends to increase. Between models four and five, however, bias decreases slightly. The mean absolute error (MAE) and the root mean squared error (RMSE) also decrease between the base model and model five. Paying special attention to the RMSE, it is important to note that the variance in residuals is decreasing as more variables are factored into the model. Referencing Figure Three, the distribution of residuals increases across each model iteration as the variance between residuals decreases. The base model has the lowest spread and highest variance in residuals, while model five’s residuals have the largest spread and smallest variance. Figure Three corroborates the decreasing magnitude of residuals with each new model. With five regressors, the mean error decreases significantly from the base model’s average error. Even with insignificant regressors, the decrease in the frequency distribution of error magnitudes indicates higher overall predictive accuracy of the model. The stepwise model incorporated six statistically significant variables into the model. From Table Three, this change made the bias of the model negative overall. Unlike three previous model iterations with positive biases, the inclusion of statistically significant terms switched the sign of the stepwise model’s error. The MAE and RMSE also decreased, albeit slightly, in the stepwise model. Returning to Figure Three, there appears to be little difference in the magnitude of change between errors. It should be noted, however, that there is greater variance in the residuals at the tail end of the stepwise model. To better visualize these residuals, Figure Four shows that the spread and variance of residuals in model five differ greatly from the stepwise model. Overall, with the greatest number of significant regressors, the stepwise model contains the lowest levels of error and bias in predicting median household income. Logically, the errors in our model can be attributed to the natural distribution of income throughout the United States. Income is not normally distributed; as shown in Figure One, it can best be described as a normal distribution that is skewed to the right by several significant outliers.
+
+**Figure Three: Residuals Across Models**
+```{r, echo=FALSE, warning=FALSE}
+# Plot the residuals of all the models
+ggplot(res.test.step1)+
+  geom_point(aes(x=res.test.step1$Pred,y=(res.test.step1$med.tract.household.inc-res.test.step1$Pred),color=Model))+
+  facet_grid(Model~.)+
+  geom_hline(yintercept=0,color="white",size=1)+
+  # geom_hline(yintercept=-50000,linetype="dashed",color="yellow")+
+  # geom_hline(yintercept=50000,linetype="dashed",color="yellow")+
+  # geom_hline(yintercept=100000,linetype="dashed",color="yellow",)+
+  ylab("Residuals")+
+  xlab("Predicted Median Tract Household Income")+
+  # ggtitle("Residuals Across Models")+
+  labs(subtitle="White Lines Are Residuals of Zero")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))+
+  scale_y_continuous(breaks=c(-50000,0,50000,100000),labels=c("-50000","0","50000","100000"))
+```
+
+**Figure Four: Residuals in Model 5 and Stepwise**
+```{r, echo=FALSE, warning=FALSE}
+ggplot(res.test.step2)+
+  geom_point(aes(x=res.test.step2$Pred,y=(res.test.step2$med.tract.household.inc-res.test.step2$Pred),color=Model))+
+  facet_grid(Model~.)+
+  geom_hline(yintercept=0,color="white",size=2)+
+  geom_hline(yintercept=50000,linetype="dashed",color="yellow")+
+  geom_hline(yintercept=100000,linetype="dashed",color="yellow")+
+  ylab("Residuals")+
+  xlab("Predicted Median Tract Household Income")+
+  # ggtitle("Residuals in Model 5 and Stepwise")+
+  labs(subtitle="White Lines Are Residuals of Zero")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))+
+  scale_y_continuous(breaks=c(-50000,0,50000,100000),labels=c("-50000","0","50000","100000"))
+```
+
+**Table Four: Table of Coefficients for Stepwise Model**
+```{r, echo=FALSE, warning=FALSE}
+library(kableExtra)
+library(knitr)
+
+
+kable(tidy(model6),digits=getOption("digits"))
+
+```
+
+
+
+Table Four contains the coefficients of our linear income prediction model. At a glance, the most influential predictors of income are a census region’s poverty rate, proportion who attended college, and region, particularly the Northeast and West. As the poverty rate increases by one percentage point, the median household income of an area decreases by a factor of \$981.51. In line with expectations, higher poverty rates would logically indicate lower levels of income. Police killings victims in areas with higher poverty rates, it would appear, are more likely to have lower income and be predisposed to otherwise unknown effects caused by poverty. Census tracts with higher proportions of those who attend college tend to be richer after factoring in the quadratic. Census tracts with 21.7342% or more of the population with college degrees or higher will have increased median incomes. Intuitively, the median income grows the farther a census tract moves past this minimum. Overall, substantial investments in human capital and skills are more likely to have higher salaries, which is in line with the breakeven point deduced by the polynomial of the stepwise function. Interestingly, different regions of the country are richer than others. Using the Midwest as a reference variable, living in the Northeast increases the median household income by a factor of \$5953.78 while living in the West increases income by $3773.24. While variables denoting geographic region are statistically significant, we recognize that regions are large; varying taxes, population levels, and industrial capabilities may disproportionately affect these median income differences. Given statistical significance, however, we maintain that areas of the country tend to be poorer than others. When predicting the median income of police killing victims, systemic differences in access to resources and social mobility are dictated by these three variables. Education, poverty, and geography are all intertwined, and police killings victims demonstrate that their influence cannot be underestimated when predicting income. By adopting income to serve as a standardized metric, police killing victims demonstrate that distinct demographic differences elucidate internal divisions within America and the way that it is policed. 
+
+**Question Two:**
+
+During our initial analyses, we investigated the potential relationship between categorical variables, such as race, and the frequency of fatal police confrontations across the country. However these variables proved to not be significant predictors of police killings, leading us to consider other factors that differed between states. A factor that varies on a state basis and could have an effect on police killings was the difference in the strength of firearm regulations among states, leading us to look for an effective way to rank states based on firearm safety. To investigate the relationship between gun laws and observations of police killings, we utilized the rankings from Giffords as well as the metric for police killings per 100,000 people. When visualizing the number of police killings by gun law ranks, we found that states with the worst firearm safety rank, “F”, had the highest number of instances of fatal police confrontations; as seen in Table Five, there are about .18 deaths per 100,000 people. Surprisingly, states with the best firearm safety rank of “A” actually had the second highest number of police killings, with about .14 deaths per 100,000 people. However, as seen in Table Five, this may be explained by the difference in populations between the gun ranks, as the states ranked “A” and “F” have significantly higher populations than all other ranks. Additionally the rate of police killings for “F” states may be skewed as there are 23 states categorized in this rank, while the rank with the next highest number of states only has 7. 
+
+**Figure Five: Police Killings per 100,000 People by Grade of Gun Laws**
+```{r, echo=FALSE, warning=FALSE}
+ggplot(gun.scorecard4)+
+  geom_col(aes(x=`2015 Grade`,y=`Kill.per.100,000`),fill="skyblue1")+
+  xlab("Gun Control Law Rankings")+
+  ylab("Police Killings per 100,000 People")+
+  # ggtitle("Police Killings per 100,000 People by Grade of Gun Laws")+
+  theme_dark()+
+  theme(plot.background = element_rect(fill = "lightgray"))
+```
+
+**Table Five: Police Killing Rates by Gun Law Grades**
+```{r, echo=FALSE, warning=FALSE}
+formattable(gun.table)
+```
+
+
+When looking at the gun safety ranks, it is important to note the population discrepancies between them and how this may play a role in enacting more robust firearm regulations. While the “A” rank has only six states the aggregate population for these states is about 84 million, while in comparison the “D” rank has seven states and has less than half the total population with 37 million. This indicates that firearm regulation is more of an issue among states with higher populations, as these states tend to have increased rates of violence simply due to large populations. Gifford’s rankings confirm this theory, as California has the largest state population in the country and is subsequently ranked number 1 in terms of the strength and safety of its gun laws. Additionally, New York is also part of the “A” rank states and has the fourth largest population in the country. The “A” rank, including exorbitantly high population states such as California and New York, explains why the rate of fatal police confrontations for this category ranks so high. In these high population states, there is more of an incentive to regulate firearms as an attempt to deal with the higher rates of violence stemming from more people. As such, firearm safety is a topic of much discussion among both policymakers and citizens alike in these areas. On the flip side, firearm regulation may not be an issue of much focus amongst policymakers in states with smaller populations. This can be observed from the Giffords ranking in how the states with the five lowest populations in 2015 being Wyoming, Vermont, Alaska, North Dakota, and South Dakota are all categorized as having the worst firearm regulations with a grade of “F”. 
+
+**Figure Six: Police Killings in States with Ranked Gun Laws**
+```{r, echo=FALSE, warning=FALSE}
+four
+```
+
+The effect of this positive relationships between population and firearm regulations is that in states with low populations, firearms are more easily acquired than states with larger populations. This may be one factor in explaining why more police killings occur in lower population states, as it is more likely that someone in a police confrontation is to be armed in these areas than others. This is pertinent because we found in our initial EDA that the majority of victims in police killings tend to be armed. An armed individual is more likely to be seen as a threat to police officers, which may help explain why police killings occur at a higher rate in the “F” rank states. There are definitely exceptions to this relationship, such as Texas, which has the second highest population but is ranked in the “F” category. This could be somewhat attributed to differences in political ideology across the United States, as large states such as New York and California are considered more progressive concerning social reform than other states. To conceptualize the relationship between the police killing data and gun law ranks, we created a heat map which displays this information concurrently. The shade of each state represents their corresponding gun safety rank while each point represents a fatal police confrontation. It can be observed that the majority of police killings tend to be in higher population states such as California, Texas, and Florida, while sparsely populated states such as Idaho, Montana, and Wyoming tend to have the fewest instances of police killings. 
+
+
+
+## Conclusion
+
+Utilizing data from FiveThirtyEight and The Guardian, our group set out to find a model that accurately predicts the median household income of police killing victims and assess the relationship between gun laws and the number of police killings by state. Through cross validation and stepwise regression techniques, we discovered that education, the poverty rate, and region significantly influence median household income. The proportion of college educated citizens is an indicator of a wealthy census tract, while higher poverty and unemployment rates indicate low income census tracts. The Northern and Western regions of the country tend to have larger median incomes. Additionally, gun control laws display a relationship with police violence, but the population factor hinders how much we can truly conclude about the relationship between police violence and gun laws. 
+
+For all intents and purposes, income is used as a universal metric for valuing human utility. In the cultural zeitgeist, measuring an individual’s contributions to society, i.e. valuing whether a person is “lazy” or “productive”, from their income level is common. Attaching this prediction to a census region, therefore, characterizes an area with numerous socioeconomic connotations. Amongst a volatile group of individuals like police shooting victims, being able to efficiently track and predict median income of a census region allows us to both recognize and ameliorate the characteristics that contribute to police violence. Although victims of police killings are a subset of America’s general population, these victims represent a very tangible failure on the part of the government to regulate or provide for the general welfare. While income cannot be predicted accurately in every instance, the ability to accurately predict and model its distribution provides insight into the shared realities of vulnerable populations across America. Future studies could incorporate several approaches to improving this income prediction model. First, additional observations can be added to this model. In total, this is a very small dataset. Incorporating numerous years of data could help refine the model’s predictive accuracy. Second, further testing the geographic factors that affect income would provide greater insights on the true impact of census region on median income. Finally, incorporating different census data, such as data on infrastructure, transportation, and employment, would provide additional regressors for the model. Utilizing datasets such as the Census Bureau's American Community Survey would provide easily accessible data to model income over time and region. 
+ 
+Combining data from the Giffords Law Center and the US Census, we aimed to analyze the relationship between police killing rates and gun laws. After visualizing the data through various techniques, we found a relatively inverse relationship between the strictness of a state’s gun laws and the rate of fatal police confrontations. This information could be very pertinent for policy makers in increasing the overall safety of our country as well as lowering the number of shooting victims. Our methods could be improved by performing significance tests, such as testing whether it is truly significant that the states with the worst gun safety rankings actually have the highest rates of police killings, or if it is just an anomaly due to our specific dataset. Additionally, our analyses could be improved finding a more effective way to rank states based on the robustness of their firearm regulations. 
+ 
+More recent data from a nonprofit called Mapping Police Violence confirms our findings and details the severity of the police violence epidemic in our country. In addition to urging policy reforms, this non profit addresses the potential solutions legislators can pursue to influence the policy side of police violence. Along with more recent statistics, further studies from this data could prove to be a significant part of the national discussion about gun violence prevention, as well as the larger discourse about structural barriers to socioeconomic equality. 
+
+
