@@ -27,7 +27,8 @@ Open up the *kaggle.json* file that you previously downloaded and it should look
 
 Put your information into this next chunk of code and run it to save it in the correct location.
 
-```import json
+```
+import json
 token = {"username":"YOUR USERNAME","key":"YOUR API KEY"}
 with open('/root/.kaggle/kaggle.json', 'w') as file:
     json.dump(token, file)
@@ -55,7 +56,8 @@ This should open a a panel with the files you have uploaded. For the Ashrae Ener
 
 At this point you can read in your data using pandas, after unzipping the files that are zipped.
 
-```import pandas as pd
+```
+import pandas as pd
 building = pd.read_csv('building_metadata.csv')
 !unzip test.csv.zip
 test = pd.read_csv('test.csv')
