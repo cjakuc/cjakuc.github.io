@@ -29,10 +29,10 @@ Open up the *kaggle.json* file that you previously downloaded and it should look
 
 Put your information into this next chunk of code and run it to save it in the correct location.
 
-`import json
+```import json
 token = {"username":"YOUR USERNAME","key":"YOUR API KEY"}
 with open('/root/.kaggle/kaggle.json', 'w') as file:
-    json.dump(token, file)`
+    json.dump(token, file)```
 
 Kaggle's API [documentation](https://github.com/Kaggle/kaggle-api) recommends running the next line of code to prevent other users of your computer from accessing your credentials.
 
@@ -56,7 +56,7 @@ This should open a a panel with the files you have uploaded. For the Ashrae Ener
 
 At this point you can read in your data using pandas, after unzipping the files that are zipped.
 
-`import pandas as pd
+```import pandas as pd
 building = pd.read_csv('building_metadata.csv')
 !unzip test.csv.zip
 test = pd.read_csv('test.csv')
@@ -65,6 +65,6 @@ train = pd.read_csv('train.csv')
 !unzip weather_test.csv.zip
 weather_test = pd.read_csv('weather_test.csv')
 !unzip weather_train.csv.zip
-weather_train = pd.read_csv('weather_train.csv')`
+weather_train = pd.read_csv('weather_train.csv')```
 
 Now you can do whatever you like with your data! Please let me know if you find any errors or other potential solutions. I hope this has been a helpful tutorial for your data science journey!
