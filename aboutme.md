@@ -1,16 +1,7 @@
 ---
 layout: page
-title: About me
-subtitle: Why you'd want to go on a date with me
+title: About Me
 ---
 
-My name is Inigo Montoya. I have the following qualities:
+My name is Chris Jakuc. I am a graduate of the University of North Carolina at Chapel Hill and I am currently enrolled in Lambda School in the Data Science program. My undergraduate degree was in Envrionmental studies and I am particularly interested in sustainable energy generation. Within the field of data science I have experience cleaning data, web scraping, creating visualizations, and building predictive modeling. I am working to continue to build these skills as well as learn more about data engineering and machine learning. Outside of my career, I enjoy watching and playing soccer, cooking, traveling, lifting weights, and playing with my dog Pasha.
 
-- I rock a great mustache
-- I'm extremely loyal to my family
-
-What else do you need?
-
-### my history
-
-To be honest, I'm having some trouble remembering right now, so why don't you just watch [my movie](http://en.wikipedia.org/wiki/The_Princess_Bride_%28film%29) and it will answer **all** your questions.
