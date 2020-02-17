@@ -2,6 +2,7 @@
 layout: post
 title: Using the Kaggle API to Import Datasets into Google Colaboratory
 subtitle: This code works as of January 13th, 2020.
+image: /img/blog1.jpeg
 ---
 The first step is to create a Kaggle account and generate an API key. Once logged in, click on your profile picture in the top right and select **My Account**. Scroll down and click **Create New API Token**. This will prompt the download of a JSON file named *kaggle.json* containing your Kaggle username and personal API token.
 
