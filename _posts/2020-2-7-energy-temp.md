@@ -2,6 +2,7 @@
 layout: post
 title: Visualizing the relationship between energy demand and air temperature
 subtitle: Analysis in Python
+image: /img/blog2.jpg
 ---
 **The Data:** [The energy data](https://www.kaggle.com/robikscube/hourly-energy-consumption#pjm_hourly_est.csv), hosted on Kaggle, is from a regional transmission organization called [PJM Interconnection LLC](https://www.pjm.com/). Within PJM’s data, I selected the subset from [Dayton Power and Light](https://www.dpandl.com/About-DPL/Our-Company/Corporate-Information/Fast-Facts/) (DPL). [The weather data](https://www.ncei.noaa.gov/data/local-climatological-data/access/) is from [NOAA](https://www.ncei.noaa.gov/). [Here](https://github.com/cjakuc/DS-Unit1-Build-Week/tree/master/Notebooks) is a link to my Github page hosting the Google Colaboratory notebooks where I cleaned and visualized the data.
 
