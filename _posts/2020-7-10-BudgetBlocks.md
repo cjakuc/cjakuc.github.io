@@ -28,7 +28,7 @@ As this project may not have continued DS support, we built this admin interface
   
     - Adjust how transactions are recategorized from Plaid categories to BudgetBlocks categories  
     - View the current status of the PostgreSQL database that's used to make the recategorizations  
-    - Reset the default recategorization database to our original status
+    - Reset the default recategorization database to its original status
     - Reset the database holding users' customized preferences
     - View a timestamped changelog of changes to default categorization prefences  
 
