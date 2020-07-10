@@ -32,6 +32,6 @@ As this project may not have continued DS support, we built this admin interface
     - Reset the database holding users' customized preferences
     - View a timestamped changelog of changes to default categorization prefences  
 
-The GitHub repository for this project can be found [here](https://github.com/Lambda-School-Labs/budget-blocks-ds). It includes multiple GIFs showing the API routes in action.
+The GitHub repository for this project can be found [here](https://github.com/Lambda-School-Labs/budget-blocks-ds). The ReadeMe file includes multiple GIFs showing the API routes in action.
 
 An in-depth video walkthrough that was made for future developers of the project can be seen [here](https://www.youtube.com/watch?v=cf3lLvb7I3s).
