@@ -2,7 +2,7 @@
 layout: post
 title: ArcGIS Visualizations, Analysis, and Medium Post
 subtitle: A detailed look at refreshing my ArcGIS skills and combining Python
-image: /img/budget_blocks_logo_color.png
+image: /img/NC_Renew_vs_Fossil_Final.png
 ---
 
 It had been a little while since I last used ArcGIS during undergrad, so I wanted to refresh my skills by building a project.
