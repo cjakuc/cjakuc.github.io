@@ -1,4 +1,3 @@
-
 ---
 layout: post
 title: Creation of Power App Connected with Azure SQL Server
