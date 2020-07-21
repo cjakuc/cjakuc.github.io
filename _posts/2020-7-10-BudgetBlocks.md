@@ -19,8 +19,9 @@ Allows users to quickly and easily get their transactions grouped into categorie
 * ### Census comparison  
 Allow users to quickly see how their spending and budget goals stack up against the average of their nearest city.
   1. On the front end, users input their state and city.
-  2. Use GeoPy library to find the closest major city to the user that we have data for.
-  3. Returns 2017-18 Census average expenditure data for that city, categorized according to a user's preferences.
+  2. Uses GeoPy library to convert the location to coordinates.
+  3. Implements [the Haversine formula](https://en.wikipedia.org/wiki/Haversine_formula) to find the closest city that there is Census data for.
+  4. Returns 2017-18 Census average expenditure data for that city, categorized according to a user's preferences.
 * ### Admin GUI  
 As this project may not have continued DS support, we built this admin interface to allow a future development team to edit how transactions are categorized by default.
   1. Login [here](https://api.budgetblocks.org/admin).
