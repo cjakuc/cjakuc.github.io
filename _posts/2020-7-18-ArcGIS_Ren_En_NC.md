@@ -10,7 +10,7 @@ I ended up creating visualizations on energy generation sources in the counties 
 
 Watch a video presentation of the content [here](/img/ArcGISvideo.mp4)!
 
-Check out my map on ArcGIS Online directly [here](https://arcg.is/0HPWzD)!
+Check out my map on ArcGIS Online directly [here](https://learngis2.maps.arcgis.com/home/webmap/viewer.html?webmap=76d04f9308cb462eb39d1f05cd3903de)!
 
 Check out my Google Collaboratory notebook where I slightly cleaned and processed the energy data [here](https://colab.research.google.com/drive/1ej5pGq0ZnMaxz1DMD1fkHY09TGrXbo7K?usp=sharing)!
 
