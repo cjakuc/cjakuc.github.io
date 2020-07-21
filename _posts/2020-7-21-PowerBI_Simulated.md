@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Creating Visualizations with Power BI and R
-sutitle: Connected with Azure SQL Server
+subtitle: Connected with Azure SQL Server
 image: /img/Power-BI.jpg
 ---
 
