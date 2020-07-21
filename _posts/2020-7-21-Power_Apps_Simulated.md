@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Creation of Power App Connected with Azure SQL Server
+title: Creating a Power App Connected with Azure SQL Server
 image: /img/powerapps.png
 ---
 
