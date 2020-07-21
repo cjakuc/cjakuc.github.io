@@ -8,6 +8,8 @@ image: /img/NC_Renew_vs_Fossil_Final.png
 It had been a little while since I last used ArcGIS during undergrad, so I wanted to refresh my skills by building a project.
 I ended up creating visualizations on energy generation sources in the counties of North Carolina and using a bit of Python to help along the way.
 
+Watch a video presentation of the content [here](/img/ArcGISvideo.mp4)!
+
 Check out my map on ArcGIS Online directly [here](https://arcg.is/0HPWzD)!
 
 Check out my Google Collaboratory notebook where I slightly cleaned and processed the energy data [here](https://colab.research.google.com/drive/1ej5pGq0ZnMaxz1DMD1fkHY09TGrXbo7K?usp=sharing)!
