@@ -10,6 +10,8 @@ As the data science team, we built and deployed (AWS EB) an API, using FastAPI, 
 
 Interact with the API directly [here](https://api.budgetblocks.org/docs).
 
+If you'd rather watch me quickly walk through it, an in-depth video walkthrough that was made for future developers of the project can be seen [here](https://www.youtube.com/watch?v=cf3lLvb7I3s).
+
 ## Here is a high level break down of what the API can do and how it works:
 * ### Recategorization of transactions  
 Allows users to quickly and easily get their transactions grouped into categories, also can tweak how transactions are categorized if they desire.
@@ -34,5 +36,3 @@ As this project may not have continued DS support, we built this admin interface
     - View a timestamped changelog of changes to default categorization prefences  
 
 The GitHub repository for this project can be found [here](https://github.com/Lambda-School-Labs/budget-blocks-ds). The reademe file includes multiple GIFs showing the API routes and Admin Interface in action.
-
-If you'd rather watch me quickly walk through it, an in-depth video walkthrough that was made for future developers of the project can be seen [here](https://www.youtube.com/watch?v=cf3lLvb7I3s).
